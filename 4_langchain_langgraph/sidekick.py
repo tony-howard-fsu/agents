@@ -28,6 +28,9 @@ from langgraph.types import Command
 
 from sidekick_tools import get_all_tools
 
+from langchain.chat_models import init_chat_model
+from langchain_deepseek import ChatDeepSeek
+
 load_dotenv(override=True)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -88,8 +91,13 @@ class Sidekick:
     async def setup(self):
         os.makedirs(SANDBOX, exist_ok=True)
         self.tools, self.sessions = await get_all_tools(SANDBOX)
+
+        worker_model = ChatDeepSeek(model="deepseek-v4-flash")
+
         self.worker = create_agent(
-            model="openai:gpt-5.4-mini",
+            #model="openai:gpt-5.4-mini",
+            model=worker_model,
+            #model="deepseek:deepseek-v4-flash",
             tools=self.tools,
             system_prompt=f"{WORKER_PROMPT}\nToday is {datetime.now():%A %d %B %Y}.",
             middleware=[
@@ -104,7 +112,14 @@ class Sidekick:
             ],
             checkpointer=self.memory,
         )
-        self.evaluator = ChatOpenAI(model="gpt-5.4-mini").with_structured_output(EvaluatorOutput)
+        
+        #self.evaluator = ChatOpenAI(model="gpt-5.4-mini").with_structured_output(EvaluatorOutput)
+        evaluator_model = ChatDeepSeek(
+            model="deepseek-v4-flash",
+            extra_body={"thinking": {"type": "disabled"}},
+        )
+        self.evaluator = evaluator_model.with_structured_output(EvaluatorOutput)
+        #self.evaluator = ChatOpenAI(model="deepseek:deepseek-v4-flash").with_structured_output(EvaluatorOutput)
 
     async def evaluate(
         self, message: str, success_criteria: str, last_reply: str, tools_used: list[str]

@@ -5,7 +5,7 @@ import html
 import gradio as gr
 
 import styles
-from sidekick import Sidekick
+from sidekick_personal import Sidekick
 
 LAUNCH_STYLE = {"theme": styles.THEME, "css": styles.CSS, "head": styles.JS}
 

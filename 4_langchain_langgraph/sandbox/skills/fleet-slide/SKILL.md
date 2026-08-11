@@ -14,7 +14,7 @@ Use this skill when a briefing or comparison ends in a recommendation and someon
 - The title names the winner in five words or fewer, for example "Fleet pick: Tesla Model Y"; keep it under 35 characters so it fits on one line of the slide
 - Exactly three key points, each one line, with concrete numbers wherever possible
 - The recommendation is one plain sentence that states the decision and names the runner-up
-- Brand colors, layout and the Voltway logo are applied automatically by the create_slide tool, so focus on the words and let the tool handle the design
+- Brand colors, layout and the Voltway logo are applied automatically by the build_slide_new tool, so focus on the words and let the tool handle the design
 
 ## Workflow
 
