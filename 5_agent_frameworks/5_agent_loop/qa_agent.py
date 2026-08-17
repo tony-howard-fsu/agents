@@ -73,7 +73,7 @@ async def judge_game(language: str, objective: str, uri: str) -> dict | None:
 
     agent = LlmAgent(
         name="qa_tester",
-        model=config.ORCHESTRATOR_MODEL,
+        model=config.orchestrator_llm(),
         instruction="You are a meticulous QA tester. Use the browser to check the game, then report your verdict.",
         tools=[browser, report_game],
     )

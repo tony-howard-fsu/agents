@@ -25,6 +25,14 @@ import { mkdirSync, rmSync, existsSync, readFileSync } from "node:fs";
 import { Agent } from "@mastra/core/agent";
 import { boardTools, makeFilesystem, WORKSPACE } from "./tools.ts";
 import { resetBoard, addGoal, claimTodo, showBoard, BOARD_PATH } from "./board.ts";
+import { createOpenAI } from "@ai-sdk/openai";
+import { resolveWorkerModel } from "./providers.ts";
+
+const { modelId, baseURL, apiKey } = resolveWorkerModel(process.env.WORKER_MODEL ?? "deepseek/deepseek-v4-flash");
+const provider = createOpenAI({
+  ...(baseURL ? { baseURL } : {}),
+  apiKey,
+});
 
 // Day 5 mode is "<taskId> <boardPath>". Run bare (npm run worker), none of this fires.
 const args = process.argv.slice(2);
@@ -68,7 +76,9 @@ const worker = new Agent({
   id: "worker",
   name: "Worker",
   instructions: INSTRUCTIONS,
-  model: "openai/" + (process.env.WORKER_MODEL ?? "gpt-5.4-mini"),
+  // provider(...) defaults to OpenAI's stateful Responses API (/responses), which DeepSeek
+  // doesn't implement; provider.chat(...) targets the classic /chat/completions endpoint instead.
+  model: provider.chat(modelId),
   tools: { ...boardTools, ...(await filesystem.listTools()) },
 });
 

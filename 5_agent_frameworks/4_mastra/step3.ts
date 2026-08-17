@@ -17,15 +17,27 @@ import "./env.ts";
 import { Agent } from "@mastra/core/agent";
 import { showTodos, completeTask } from "./tools.ts";
 import { resetBoard, addGoal, showBoard } from "./board.ts";
+import { createOpenAI } from "@ai-sdk/openai";
+import { resolveWorkerModel } from "./providers.ts";
 
 resetBoard();
 addGoal("Read notes.txt, translate its contents into natural Spanish, and write the Spanish to spanish.txt.");
+
+
+const { modelId, baseURL, apiKey } = resolveWorkerModel("deepseek/deepseek-v4-flash");
+const provider = createOpenAI({
+  ...(baseURL ? { baseURL } : {}),
+  apiKey,
+});
 
 const boardAgent = new Agent({
   id: "board-agent",
   name: "Board Agent",
   instructions: "You help manage a shared todo board.",
-  model: "openai/gpt-5.4-mini",
+  //model: "openai/gpt-5.4-mini",
+  // provider(...) defaults to OpenAI's stateful Responses API (/responses), which DeepSeek
+  // doesn't implement; provider.chat(...) targets the classic /chat/completions endpoint instead.
+  model: provider.chat(modelId),
   tools: { showTodos, completeTask },
 });
 

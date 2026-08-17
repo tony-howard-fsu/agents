@@ -80,6 +80,7 @@ def run_sandbox_python(filename: str) -> str:
     Returns:
         A labeled block containing the exit code, stdout, and stderr.
     """
+    print(f"[sandbox] Running {filename} in Docker (up to 300s)...")
     try:
         result = subprocess.run(
             [
@@ -93,6 +94,7 @@ def run_sandbox_python(filename: str) -> str:
             text=True,
             timeout=300,
         )
+        print(f"[sandbox] {filename} finished, exit code {result.returncode}.")
         return (
             f"Exit code: {result.returncode}\n\n"
             f"--- stdout ---\n{result.stdout or '(empty)'}\n\n"
@@ -101,6 +103,7 @@ def run_sandbox_python(filename: str) -> str:
     except subprocess.TimeoutExpired as e:
         stdout = e.stdout.decode() if isinstance(e.stdout, bytes) else (e.stdout or "")
         stderr = e.stderr.decode() if isinstance(e.stderr, bytes) else (e.stderr or "")
+        print(f"[sandbox] {filename} timed out after 300s.")
         return (
             "The script timed out after 300 seconds.\n\n"
             f"--- stdout so far ---\n{stdout or '(empty)'}\n\n"

@@ -56,27 +56,47 @@ def write_sandbox_file(filename: str, content: str) -> str:
 def run_sandbox_python(filename: str) -> str:
     """
     Execute a Python file from the sandbox directory inside an ephemeral
-    Docker container, with the sandbox mounted as the working directory,
-    and return whatever the script printed to stdout.
+    Docker container, with the sandbox mounted as the working directory.
+
+    Returns the exit code, stdout, and stderr, clearly labeled. Note that
+    Python's unittest module prints test results — including failures and
+    tracebacks — to stderr by default, not stdout, so stderr is just as
+    important as stdout for understanding what happened.
 
     Args:
         filename: The name of the Python file to run (e.g. "solution.py").
     Returns:
-        The text printed to stdout by the executed script.
+        A labeled block containing the exit code, stdout, and stderr.
     """
-    result = subprocess.run(
-        [
-            "docker", "run", "--rm",
-            "-v", f"{SANDBOX_DIR}:/workspace",
-            "-w", "/workspace",
-            "python:3.13-slim",
-            "python", filename,
-        ],
-        capture_output=True,
-        text=True,
-        timeout=60,
-    )
-    return result.stdout
+    print(f"[sandbox] Running {filename} in Docker (up to 60s)...")
+    try:
+        result = subprocess.run(
+            [
+                "docker", "run", "--rm",
+                "-v", f"{SANDBOX_DIR}:/workspace",
+                "-w", "/workspace",
+                "python:3.13-slim",
+                "python", filename,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        print(f"[sandbox] {filename} finished, exit code {result.returncode}.")
+        return (
+            f"Exit code: {result.returncode}\n\n"
+            f"--- stdout ---\n{result.stdout or '(empty)'}\n\n"
+            f"--- stderr ---\n{result.stderr or '(empty)'}"
+        )
+    except subprocess.TimeoutExpired as e:
+        stdout = e.stdout.decode() if isinstance(e.stdout, bytes) else (e.stdout or "")
+        stderr = e.stderr.decode() if isinstance(e.stderr, bytes) else (e.stderr or "")
+        print(f"[sandbox] {filename} timed out after 60s.")
+        return (
+            "The script timed out after 60 seconds.\n\n"
+            f"--- stdout so far ---\n{stdout or '(empty)'}\n\n"
+            f"--- stderr so far ---\n{stderr or '(empty)'}"
+        )
 
 sandbox_tools = [list_sandbox_files, read_sandbox_file, write_sandbox_file, run_sandbox_python]
 

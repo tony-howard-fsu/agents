@@ -13,14 +13,25 @@
 import "./env.ts";
 import { Agent } from "@mastra/core/agent";
 import { makeFilesystem } from "./tools.ts";
+import { createOpenAI } from "@ai-sdk/openai";
+import { resolveWorkerModel } from "./providers.ts";
 
 const filesystem = makeFilesystem();
+
+const { modelId, baseURL, apiKey } = resolveWorkerModel("deepseek/deepseek-v4-flash");
+const provider = createOpenAI({
+  ...(baseURL ? { baseURL } : {}),
+  apiKey,
+});
 
 const fileAgent = new Agent({
   id: "file-agent",
   name: "File Agent",
   instructions: "You can read and write files in your workspace. Use your tools to do what is asked.",
-  model: "openai/gpt-5.4-mini",
+  //model: "openai/gpt-5.4-mini",
+  // provider(...) defaults to OpenAI's stateful Responses API (/responses), which DeepSeek
+  // doesn't implement; provider.chat(...) targets the classic /chat/completions endpoint instead.
+  model: provider.chat(modelId),
   tools: await filesystem.listTools(),
 });
 

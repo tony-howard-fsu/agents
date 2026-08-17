@@ -29,13 +29,23 @@ if TASK_ID is not None:
 from dotenv import load_dotenv  # noqa: E402
 from pydantic_ai import Agent  # noqa: E402
 from pydantic_ai.mcp import MCPToolset  # noqa: E402
+from pydantic_ai.models.openai import OpenAIChatModel  # noqa: E402
+from pydantic_ai.providers.openai import OpenAIProvider  # noqa: E402
 from fastmcp.client.transports import StdioTransport  # noqa: E402
 
 import board  # noqa: E402
+import worker_llm  # noqa: E402
 
 load_dotenv(override=True)
 
-MODEL = f"openai-chat:{os.environ.get('WORKER_MODEL', 'gpt-5.4-mini')}"
+MODEL_ID, BASE_URL, API_KEY = worker_llm.resolve(os.environ.get("WORKER_MODEL", "deepseek/deepseek-v4-flash"))
+MODEL = OpenAIChatModel(
+    MODEL_ID,
+    provider=OpenAIProvider(
+        api_key=API_KEY,
+        **({"base_url": BASE_URL} if BASE_URL else {}),
+    ),
+)
 WORKSPACE = Path(__file__).resolve().parent / "workspace"
 GOAL = "Read notes.txt, translate its contents into natural Spanish, and write the Spanish to spanish.txt."
 # Where the file tools may write: this worker's own workspace when standalone, or

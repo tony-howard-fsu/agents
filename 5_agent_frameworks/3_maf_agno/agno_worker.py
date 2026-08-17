@@ -30,7 +30,7 @@ if TASK_ID is not None:
 
 from dotenv import load_dotenv  # noqa: E402
 from agno.agent import Agent  # noqa: E402
-from agno.models.openai import OpenAIChat  # noqa: E402
+from agno.models.openai import OpenAIChat, OpenAILike  # noqa: E402
 from agno.tools.mcp import MCPTools  # noqa: E402
 from mcp import StdioServerParameters  # noqa: E402
 
@@ -42,17 +42,24 @@ import agno.tools.mcp.mcp as agno_mcp  # noqa: E402
 agno_mcp.stdio_client = functools.partial(agno_mcp.stdio_client, errlog=subprocess.DEVNULL)
 
 import board  # noqa: E402
+import worker_llm  # noqa: E402
 
 load_dotenv(override=True)
 
-MODEL = os.environ.get("WORKER_MODEL", "gpt-5.4-mini")
+MODEL, BASE_URL, API_KEY = worker_llm.resolve(os.environ.get("WORKER_MODEL", "deepseek/deepseek-v4-flash"))
+
 WORKSPACE = Path(__file__).resolve().parent / "workspace"
 GOAL = "Read notes.txt, translate its contents into natural Spanish, and write the Spanish to spanish.txt."
 # Where the file tools may write: this worker's own workspace when standalone, or
 # the shared site (the board file's folder) when working a Day 5 task.
 WORK_DIR = WORKSPACE if TASK_ID is None else Path(sys.argv[2]).resolve().parent
 
-model = OpenAIChat(id=MODEL)
+#model = OpenAIChat(id=MODEL)
+model = OpenAILike(
+    id=MODEL,
+    api_key=API_KEY,
+    **({"base_url": BASE_URL} if BASE_URL else {}),
+)
 
 
 def show_todos() -> list[dict]:

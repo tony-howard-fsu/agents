@@ -263,7 +263,7 @@ def _build_agent(team: Team) -> LlmAgent:
         for w in team.workers
     )
     instruction = prompts.ORCHESTRATOR_PROMPT.format(language=team.language, team=team_lines)
-    return LlmAgent(name="orchestrator", model=config.ORCHESTRATOR_MODEL, instruction=instruction, tools=make_tools(team))
+    return LlmAgent(name="orchestrator", model=config.orchestrator_llm(), instruction=instruction, tools=make_tools(team))
 
 
 async def _run(team: Team) -> None:
@@ -281,7 +281,10 @@ async def _run(team: Team) -> None:
         ):
             if event.content and event.content.parts:
                 for part in event.content.parts:
-                    if part.text and part.text.strip():
+                    # Skip reasoning/thought parts (see css_agent.py's _ask for why): a
+                    # reasoning model's raw chain-of-thought isn't the orchestrator's own
+                    # narration, so it shouldn't be printed as if it were.
+                    if part.text and part.text.strip() and not part.thought:
                         live_board.console.print(part.text.strip(), style="dim italic")
     except LlmCallsLimitExceededError:
         # The orchestrator used its whole turn budget. Stop cleanly and let the safety

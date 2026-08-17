@@ -87,7 +87,7 @@ Step 4: All of the web search results will then need to be analysed and synthesi
 come up with the final report to answer the user's query and optional 
 additional context using your writer_agent tool. You must use the writer_agent for this.
 
-Step 5: The report also needs to be sent via email to the user using your email_agent tool. You must use the writer_agent for this.
+Step 5: The report also needs to be sent via email to the user using your email_agent tool. You must use the email_agent for this.
 
 Step 6: Return the actual report as written by the writer_agent tool. Don't try to summarize it or chnage it in any way.
 
@@ -144,7 +144,11 @@ async def handle_button_click_via_agent(source, *args):
     with trace("deep research manager"):
         result = await Runner.run(deep_research_agent, deep_research_context)
 
-    #3 figure out what the agent did
+    #3 figure out what the agent did. Which branch fires is the LLM's own decision
+    #(is_asking_clarifying_questions), not something the button click controls, so both
+    #branches must yield the same full outputs shape regardless of which button triggered
+    #this call — otherwise the branch the calling button didn't expect crashes Gradio with
+    #a wrong-output-count error. gr.skip() leaves an output (including gr.State) untouched.
     #if it asked clarifying questions, then format the UI's clarifying questions components appropriately
     if result.final_output.is_asking_clarifying_questions and len(result.final_output.questions_list) > 0:
         questions = result.final_output.questions_list[:NUM_CLARIFYING_QUESTIONS]
@@ -161,7 +165,7 @@ async def handle_button_click_via_agent(source, *args):
         #reset the clarifying questions to empty
         result.final_output.questions_list = []
 
-        # 2. Return values for 'ask' outputs, and gr.update() for the 'report' component. Since report generation uses yield, entire function has to use yield
+        # 2. Return values for 'ask' outputs, and gr.skip() for the 'report' component. Since report generation uses yield, entire function has to use yield
         yield (
             questions,  # questions_state
             original_question,  # original_question_state
@@ -170,11 +174,21 @@ async def handle_button_click_via_agent(source, *args):
             *column_updates,
             *answer_box_updates,
             gr.update(visible=True),  # answers_submit_row
-            gr.update() # <-- Keeps the 'report' box unchanged during this phase
+            gr.skip(), # <-- Keeps the 'report' box unchanged during this phase
         )
-    #else if it generated the report, format the UI report component
+    #else if it generated the report, fill the full outputs shape but only touch the
+    #report component — every other slot is a no-op via gr.skip()
     elif result.final_output.final_report:
-        yield result.final_output.final_report
+        yield (
+            gr.skip(),  # questions_state
+            gr.skip(),  # original_question_state
+            gr.skip(),  # status
+            *([gr.skip()] * NUM_CLARIFYING_QUESTIONS),  # question_text_boxes
+            *([gr.skip()] * NUM_CLARIFYING_QUESTIONS),  # question_columns
+            *([gr.skip()] * NUM_CLARIFYING_QUESTIONS),  # answer_boxes
+            gr.skip(),  # answers_submit_row
+            gr.update(value=result.final_output.final_report),  # report
+        )
 
 # --------------------------------------------------------------------------
 # Gradio UI
@@ -246,7 +260,7 @@ with gr.Blocks(title="Deep Research") as ui:
     submit_answers_btn.click(
         fn=partial(handle_button_click_via_agent, "submit_answers_btn"),
         inputs=[original_question_state, questions_state, *answer_boxes],
-        outputs=[report]
+        outputs=all_ui_outputs
     )
 
 if __name__ == "__main__":

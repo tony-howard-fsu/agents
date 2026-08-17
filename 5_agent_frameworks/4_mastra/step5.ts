@@ -18,6 +18,14 @@ import { mkdirSync, rmSync, existsSync, readFileSync } from "node:fs";
 import { Agent } from "@mastra/core/agent";
 import { boardTools, makeFilesystem, WORKSPACE } from "./tools.ts";
 import { resetBoard, addGoal, claimTodo, showBoard } from "./board.ts";
+import { createOpenAI } from "@ai-sdk/openai";
+import { resolveWorkerModel } from "./providers.ts";
+
+const { modelId, baseURL, apiKey } = resolveWorkerModel("deepseek/deepseek-v4-flash");
+const provider = createOpenAI({
+  ...(baseURL ? { baseURL } : {}),
+  apiKey,
+});
 
 const GOAL = "Read notes.txt, translate its contents into natural Spanish, and write the Spanish to spanish.txt.";
 
@@ -41,7 +49,10 @@ const worker = new Agent({
   id: "worker",
   name: "Worker",
   instructions: INSTRUCTIONS,
-  model: "openai/gpt-5.4-mini",
+  //model: "openai/gpt-5.4-mini",
+  // provider(...) defaults to OpenAI's stateful Responses API (/responses), which DeepSeek
+  // doesn't implement; provider.chat(...) targets the classic /chat/completions endpoint instead.
+  model: provider.chat(modelId),
   tools: { ...boardTools, ...(await filesystem.listTools()) },
 });
 

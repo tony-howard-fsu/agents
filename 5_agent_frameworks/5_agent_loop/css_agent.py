@@ -68,7 +68,7 @@ async def _ask(prompt: str) -> str:
     """Run one stateless ADK agent turn and return its text, stripped of code fences."""
     agent = LlmAgent(
         name="art_director",
-        model=config.ORCHESTRATOR_MODEL,
+        model=config.orchestrator_llm(),
         instruction="You are a precise front-end designer. Return only the file contents asked for.",
     )
     runner = InMemoryRunner(agent=agent, app_name=_APP)
@@ -79,7 +79,11 @@ async def _ask(prompt: str) -> str:
             user_id="orchestrator", session_id=session.id, new_message=types.UserContent(prompt)
         ):
             if event.content and event.content.parts:
-                parts.extend(p.text for p in event.content.parts if p.text)
+                # Reasoning models (DeepSeek's v4 line included) stream their chain-of-thought
+                # as a separate channel; ADK surfaces it as Part(thought=True) rather than
+                # dropping it. Skip those parts so only the actual file content is collected —
+                # otherwise the model's scratchpad ends up written into common.css/index.html.
+                parts.extend(p.text for p in event.content.parts if p.text and not p.thought)
         return _strip_fences("".join(parts))
     finally:
         # Close the runner inside the loop. google-genai's client teardown otherwise

@@ -31,20 +31,26 @@ warnings.filterwarnings("ignore", message=r".*experimental.*")  # quiet MAF's im
 
 from dotenv import load_dotenv  # noqa: E402
 from agent_framework import Agent, MCPStdioTool  # noqa: E402
-from agent_framework.openai import OpenAIChatClient  # noqa: E402
+from agent_framework.openai import OpenAIChatClient, OpenAIChatCompletionClient  # noqa: E402
 
 import board  # noqa: E402
+import worker_llm  # noqa: E402
 
 load_dotenv(override=True)
 
-MODEL = os.environ.get("WORKER_MODEL", "gpt-5.4-mini")
+MODEL, BASE_URL, API_KEY = worker_llm.resolve(os.environ.get("WORKER_MODEL", "deepseek/deepseek-v4-flash"))
 WORKSPACE = Path(__file__).resolve().parent / "workspace"
 GOAL = "Read notes.txt, translate its contents into natural Spanish, and write the Spanish to spanish.txt."
 # Where the file tools may write: this worker's own workspace when standalone, or
 # the shared site (the board file's folder) when working a Day 5 task.
 WORK_DIR = WORKSPACE if TASK_ID is None else Path(sys.argv[2]).resolve().parent
 
-client = OpenAIChatClient(model=MODEL)
+#client = OpenAIChatClient(model=MODEL)
+client = OpenAIChatCompletionClient( #had to use this version since deepseek does not support the newer Responses API
+    model=MODEL,
+    api_key=API_KEY,
+    **({"base_url": BASE_URL} if BASE_URL else {}),
+)
 
 
 def show_todos() -> list[dict]:

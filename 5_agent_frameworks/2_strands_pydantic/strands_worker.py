@@ -16,10 +16,12 @@ one task, builds what the task asks, and exits, leaving the rest of the board al
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 # Day 5 mode is "<taskId> <boardPath>". Read it before importing board, because the
 # board picks its file from BOARD_PATH at import. Run bare, none of this fires.
@@ -34,17 +36,51 @@ from strands.tools.mcp import MCPClient  # noqa: E402
 from mcp import stdio_client, StdioServerParameters  # noqa: E402
 
 import board  # noqa: E402
+import worker_llm  # noqa: E402
 
 load_dotenv(override=True)
 
-MODEL = os.environ.get("WORKER_MODEL", "gpt-5.4-mini")
+# deepseek-v4-flash streams its chain-of-thought as reasoning content; Strands warns on every
+# turn that it can't carry that back to the Chat Completions API (it strips it and continues
+# fine), which is just noise here. Filter out only that one message, scoped to the logger
+# that emits it, so other real warnings (rate limits, context overflow, other strands
+# submodules) still surface instead of being silently dropped along with it.
+class _DropReasoningContentWarning(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        return "reasoningContent is not supported in multi-turn conversations" not in record.getMessage()
+
+
+logging.getLogger("strands.models.openai").addFilter(_DropReasoningContentWarning())
+
+
+def print_answer_only(**event: Any) -> None:
+    """Like Strands' default console handler, but skips the model's raw reasoning text."""
+    data = event.get("data", "")
+    complete = event.get("complete", False)
+    tool_use = event.get("event", {}).get("contentBlockStart", {}).get("start", {}).get("toolUse")
+
+    if data:
+        print(data, end="" if not complete else "\n")
+    if tool_use:
+        print(f"\nTool: {tool_use['name']}")
+    if complete and data:
+        print("\n")
+
+
+MODEL, BASE_URL, API_KEY = worker_llm.resolve(os.environ.get("WORKER_MODEL", "deepseek/deepseek-v4-flash"))
 WORKSPACE = Path(__file__).resolve().parent / "workspace"
 GOAL = "Read notes.txt, translate its contents into natural Spanish, and write the Spanish to spanish.txt."
 # Where the file tools may write: this worker's own workspace when standalone, or
 # the shared site (the board file's folder) when working a Day 5 task.
 WORK_DIR = WORKSPACE if TASK_ID is None else Path(sys.argv[2]).resolve().parent
 
-model = OpenAIModel(client_args={"api_key": os.environ["OPENAI_API_KEY"]}, model_id=MODEL)
+model = OpenAIModel(
+    client_args={
+        "api_key": API_KEY,
+        **({"base_url": BASE_URL} if BASE_URL else {}),
+    },
+    model_id=MODEL,
+)
 
 
 @tool
@@ -121,6 +157,7 @@ async def main() -> None:
         model=model,
         system_prompt=INSTRUCTIONS,
         tools=[show_todos, plan_steps, complete_task, filesystem],
+        callback_handler=print_answer_only,
     )
     await worker.invoke_async(message)
 

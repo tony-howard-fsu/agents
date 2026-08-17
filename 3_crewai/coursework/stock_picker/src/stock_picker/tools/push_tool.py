@@ -16,5 +16,5 @@ def send_push_notification(message: str) -> str:
     pushover_token = os.getenv("PUSHOVER_TOKEN")
     pushover_url = "https://api.pushover.net/1/messages.json"
     payload = {"user": pushover_user, "token": pushover_token, "message": message}
-    result = requests.post(pushover_url, data=payload).status_code
+    result = requests.post(pushover_url, data=payload, timeout=10).status_code
     return f"Push notification sent with API response code: {result}"

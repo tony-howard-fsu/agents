@@ -24,10 +24,19 @@ from google.adk.agents import LlmAgent  # noqa: E402
 from google.adk.tools.mcp_tool import McpToolset, StdioConnectionParams  # noqa: E402
 from mcp import StdioServerParameters  # noqa: E402
 
+from google.adk.models.lite_llm import LiteLlm
+
 load_dotenv(override=True)
 os.environ.setdefault("GOOGLE_GENAI_USE_VERTEXAI", "FALSE")
 
-MODEL = "gemini-3.1-flash-lite"
+#MODEL = "gemini-3.1-flash-lite"
+MODEL = "deepseek/deepseek-v4-flash"
+# LiteLlm resolves the provider prefix itself and reads the matching *_API_KEY
+# (DEEPSEEK_API_KEY here) from the environment on its own — no need to hardcode
+# api_base/api_key, which also means a missing key fails inside LiteLLM's own
+# clear auth error rather than an unlabeled KeyError at import time.
+model = LiteLlm(model=MODEL)
+
 WORKSPACE = Path(__file__).resolve().parent / "workspace"
 WORKSPACE.mkdir(exist_ok=True)
 
@@ -74,7 +83,7 @@ Take the pending goal and see it through. Begin by laying out a short plan: the 
 """
 
 root_agent = LlmAgent(
-    model=MODEL,
+    model=model,
     name="task_worker",
     description="Works one goal from the SQLite board using its files.",
     instruction=INSTRUCTIONS,
